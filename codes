@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT
+/*
+1. Minting new tokens: The platform should be able to create new tokens and distribute them to players as rewards. Only the owner can mint tokens.
+2. Transferring tokens: Players should be able to transfer their tokens to others.
+3. Redeeming tokens: Players should be able to redeem their tokens for items in the in-game store.
+4. Checking token balance: Players should be able to check their token balance at any time.
+5. Burning tokens: Anyone should be able to burn tokens, that they own, that are no longer needed.
+*/
+pragma solidity ^0.8.20;
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+contract Salongaautoworks is ERC20, Ownable {
+    mapping(uint256 => uint256) public servicePrices;
+    constructor() ERC20("Degen", "DGN") Ownable(msg.sender) {
+        servicePrices[1] = 1080;
+        servicePrices[2] = 1600;
+        servicePrices[3] = 8000;
+        servicePrices[4] = 1000;
+    }
+    function mintDGN(address _to, uint256 _amount) public onlyOwner {
+        _mint(_to, _amount);
+    }
+    function transferDGN(address _to, uint256 _amount) public {
+        require(balanceOf(msg.sender) >= _amount, "unsuccessful transaction: Insufficient balance.");
+        approve(msg.sender, _amount);
+        transferFrom(msg.sender, _to, _amount);
+    }
+    function showservice() external pure returns (string memory) {
+        string memory saleOptions = "The service on available: {1} change oil (1000) {2} brake repair (1600) {3} transmision repair (8000) {4} tuning (1000)";
+        return saleOptions;
+    }
+    function redeemDGN(uint256 _service) public {
+        require(servicePrices[_service] > 0, "service is not available.");
+        require(_service <= 4, "service is not available.");
+        require(balanceOf(msg.sender) >= servicePrices[_service], "Redeem Failed: Insufficient balance.");
+        transfer(owner(), servicePrices[_service]);
+    } 
+    function burnDGN(uint256 _amount) public {
+        require(balanceOf(msg.sender) >= _amount, "Burn Failed: Insufficient balance.");
+        approve(msg.sender, _amount);
+        _burn(msg.sender, _amount);
+    }
+    function getBalance() external view returns (uint256) {
+        return this.balanceOf(msg.sender);
+    }
+    function decimals() override public pure returns (uint8) {
+        return 0;
+    }
+}
