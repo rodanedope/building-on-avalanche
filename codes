@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT
+/*
+1. Minting new tokens: The platform should be able to create new tokens and distribute them to players as rewards. Only the owner can mint tokens.
+2. Transferring tokens: Players should be able to transfer their tokens to others.
+3. Redeeming tokens: Players should be able to redeem their tokens for items in the in-game store.
+4. Checking token balance: Players should be able to check their token balance at any time.
+5. Burning tokens: Anyone should be able to burn tokens, that they own, that are no longer needed.
+*/
+pragma solidity ^0.8.20;
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+contract Salongaautoworks is ERC20, Ownable {
+    mapping(uint256 => uint256) public servicePrices;
+    event ServiceRedeemed(address indexed user, uint256 serviceId, uint256 price);
+    constructor() ERC20("Saalonga", "ATS") Ownable(msg.sender) {
+        servicePrices[1] = 1080;
+        servicePrices[2] = 1600;
+        servicePrices[3] = 8000;
+        servicePrices[4] = 1000;
+        servicePrices[5] = 5000;
+    }
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }
+    function transferTokens(address to, uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "Transfer failed: insufficient balance");
+        _transfer(msg.sender, to, amount);
+    }
+    function redeemService(uint256 serviceId) external {
+        uint256 price = servicePrices[serviceId];
+        require(price > 0, "Service not available");
+        require(balanceOf(msg.sender) >= price, "Redeem failed: insufficient balance");
+
+        _transfer(msg.sender, owner(), price);
+        emit ServiceRedeemed(msg.sender, serviceId, price);
+    }
+    function burn(uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "Burn failed: insufficient balance");
+        _burn(msg.sender, amount);
+    } 
+    function checkBalance() external view returns (uint256) {
+        return balanceOf(msg.sender);
+    }
+    function serviceList() external pure returns (string memory) {
+        return "Services available: {1} Oil Change (1080 DGN), {2} Brake Repair (1600 DGN), {3} Transmission Repair (8000 DGN), {4} Tuning (1000 DGN), {5} top overhaul (1000 DGN)";
+    }
+    function decimals() public pure override returns (uint8) {
+        return 0;
+    }
+}
