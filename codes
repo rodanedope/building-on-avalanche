@@ -5,64 +5,127 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Salongaautoworks is ERC20, Ownable {
-    mapping(uint256 => uint256) public servicePrices;
-    event ServiceRedeemed(address indexed user, uint256 serviceId, uint256 price);
-    mapping(address => uint256[]) public redeemedServices;
-    mapping(address => mapping(uint256 => bool)) public serviceDelivered;
 
-    constructor() ERC20("Saalonga", "ATS") Ownable(msg.sender) {
-        servicePrices[1] = 1080;
-        servicePrices[2] = 1600;
-        servicePrices[3] = 8000;
-        servicePrices[4] = 1000;
-        servicePrices[5] = 5000;
+    struct Item {
+        uint256 id;
+        uint256 price;
+        string name;
     }
 
-    function mint(address to, uint256 amount) external onlyOwner {
+    mapping(uint256 => Item) public servicePrices;
+    mapping(address => mapping(uint256 => uint256)) private playerInventory;
+    mapping(address => uint256[]) private redeemedServices;
+
+    event TokensMinted(address indexed to, uint256 amount);
+    event TokensTransferred(address indexed from, address indexed to, uint256 amount);
+    event ItemPurchased(address indexed buyer, uint256 itemId, uint256 price);
+    event TokensBurned(address indexed burner, uint256 amount);
+    event ServiceRedeemed(address indexed user, uint256 itemId, string serviceName);
+
+    constructor() ERC20("Saalonga", "ATS") Ownable(msg.sender) {
+        servicePrices[1] = Item(1, 1000, "Carburetor Cleaning");
+        servicePrices[2] = Item(2, 4500, "FI Cleaning");
+        servicePrices[3] = Item(3, 5200, "Gas Tank Cleaning");
+        servicePrices[4] = Item(4, 5250, "Suspension Repair");
+        servicePrices[5] = Item(5, 1080, "Oil Change");
+        servicePrices[6] = Item(6, 1600, "Brake Repair");
+        servicePrices[7] = Item(7, 8000, "Transmission Repair");
+        servicePrices[8] = Item(8, 1000, "Tuning");
+        servicePrices[9] = Item(9, 10000, "Top Overhaul");
+        servicePrices[10] = Item(10, 35000, "Over Hauling");
+        servicePrices[11] = Item(11, 5200, "Radiator Repair");
+        servicePrices[12] = Item(12, 15300, "Turbo Installation");
+        servicePrices[13] = Item(13, 5400, "Joint Grease Repacking");
+    }
+
+    function mintTokens(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
+        emit TokensMinted(to, amount);
     }
 
     function transferTokens(address to, uint256 amount) external {
-        require(balanceOf(msg.sender) >= amount, "Transfer failed: insufficient balance");
+        require(balanceOf(msg.sender) >= amount, "Transfer failed: insufficient balance.");
         _transfer(msg.sender, to, amount);
+        emit TokensTransferred(msg.sender, to, amount);
     }
 
-    function redeemService(uint256 serviceId) external {
-        uint256 price = servicePrices[serviceId];
-        require(price > 0, "Service not available");
-        require(balanceOf(msg.sender) >= price, "Redeem failed: insufficient balance");
-
-        // Deduct the token amount from the user's balance
-        _burn(msg.sender, price);
-
-        // Record the redeemed service
-        redeemedServices[msg.sender].push(serviceId);
-
-        // Mark the service as delivered
-        serviceDelivered[msg.sender][serviceId] = true;
-
-        // Emit the event for service redemption
-        emit ServiceRedeemed(msg.sender, serviceId, price);
+    function purchaseItem(uint256 itemId) external {
+        require(servicePrices[itemId].price > 0, "Item is not available.");
+        require(balanceOf(msg.sender) >= servicePrices[itemId].price, "Purchase failed: insufficient balance.");
+        _transfer(msg.sender, owner(), servicePrices[itemId].price);
+        playerInventory[msg.sender][itemId] += 1;
+        emit ItemPurchased(msg.sender, itemId, servicePrices[itemId].price);
     }
 
-    function burn(uint256 amount) external {
-        require(balanceOf(msg.sender) >= amount, "Burn failed: insufficient balance");
+    function burnTokens(uint256 amount) external {
+        require(balanceOf(msg.sender) >= amount, "Burn failed: insufficient balance.");
         _burn(msg.sender, amount);
+        emit TokensBurned(msg.sender, amount);
+    }
+
+    function redeemService(uint256 itemId) external {
+        require(servicePrices[itemId].price > 0, "Service is not available.");
+        require(balanceOf(msg.sender) >= servicePrices[itemId].price, "Redeem failed: insufficient balance.");
+        _transfer(msg.sender, owner(), servicePrices[itemId].price);
+        redeemedServices[msg.sender].push(itemId);
+        emit ServiceRedeemed(msg.sender, itemId, servicePrices[itemId].name);
     }
 
     function checkBalance() external view returns (uint256) {
         return balanceOf(msg.sender);
     }
 
-    function serviceList() external pure returns (string memory) {
-        return "Services available: {1} Oil Change (1080 DGN), {2} Brake Repair (1600 DGN), {3} Transmission Repair (8000 DGN), {4} Tuning (1000 DGN), {5} Top Overhaul (5000 DGN)";
+    function Servicelist() external view returns (string memory) {
+        string memory itemsList = "Shop Items:\n";
+        for (uint256 i = 1; i <= 13; i++) {
+            itemsList = string(abi.encodePacked(
+                itemsList, "{", uintToString(servicePrices[i].id), "} ", servicePrices[i].name, " (", uintToString(servicePrices[i].price), " ATS)\n"
+            ));
+        }
+        return itemsList;
+    }
+
+    function checkInventory() external view returns (string memory) {
+        string memory inventory = "Inventory:\n";
+        for (uint256 i = 1; i <= 13; i++) {
+            inventory = string(abi.encodePacked(
+                inventory, servicePrices[i].name, " (", uintToString(playerInventory[msg.sender][i]), ")\n"
+            ));
+        }
+        return inventory;
+    }
+
+    function checkRedeemedServices() external view returns (string memory) {
+        string memory services = "Redeemed Services:\n";
+        for (uint256 i = 0; i < redeemedServices[msg.sender].length; i++) {
+            uint256 itemId = redeemedServices[msg.sender][i];
+            services = string(abi.encodePacked(
+                services, servicePrices[itemId].name, "\n"
+            ));
+        }
+        return services;
     }
 
     function decimals() public pure override returns (uint8) {
         return 0;
     }
 
-    function isServiceDelivered(address user, uint256 serviceId) external view returns (bool) {
-        return serviceDelivered[user][serviceId];
+    function uintToString(uint256 v) internal pure returns (string memory) {
+        if (v == 0) {
+            return "0";
+        }
+        uint256 maxLength = 78;
+        bytes memory reversed = new bytes(maxLength);
+        uint256 i = 0;
+        while (v != 0) {
+            uint256 remainder = v % 10;
+            v /= 10;
+            reversed[i++] = bytes1(uint8(48 + remainder));
+        }
+        bytes memory s = new bytes(i);
+        for (uint256 j = 0; j < i; j++) {
+            s[j] = reversed[i - j - 1];
+        }
+        return string(s);
     }
 }
